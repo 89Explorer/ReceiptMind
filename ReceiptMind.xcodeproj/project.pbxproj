@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A1442B3C2E0FE54000D8764B /* JTAppleCalendar in Frameworks */ = {isa = PBXBuildFile; productRef = A1442B3B2E0FE54000D8764B /* JTAppleCalendar */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		A1442B1F2E0FD2B500D8764B /* ReceiptMind.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReceiptMind.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -36,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1442B3C2E0FE54000D8764B /* JTAppleCalendar in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +83,7 @@
 			);
 			name = ReceiptMind;
 			packageProductDependencies = (
+				A1442B3B2E0FE54000D8764B /* JTAppleCalendar */,
 			);
 			productName = ReceiptMind;
 			productReference = A1442B1F2E0FD2B500D8764B /* ReceiptMind.app */;
@@ -107,6 +113,9 @@
 			);
 			mainGroup = A1442B162E0FD2B500D8764B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1442B3A2E0FE54000D8764B /* XCRemoteSwiftPackageReference "JTAppleCalendar" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A1442B202E0FD2B500D8764B /* Products */;
 			projectDirPath = "";
@@ -345,6 +354,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1442B3A2E0FE54000D8764B /* XCRemoteSwiftPackageReference "JTAppleCalendar" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/patchthecode/JTAppleCalendar.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1442B3B2E0FE54000D8764B /* JTAppleCalendar */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1442B3A2E0FE54000D8764B /* XCRemoteSwiftPackageReference "JTAppleCalendar" */;
+			productName = JTAppleCalendar;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1442B172E0FD2B500D8764B /* Project object */;
 }
