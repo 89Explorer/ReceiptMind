@@ -20,6 +20,8 @@ class ViewController: UIViewController {
         return formatter
     }()
     
+    private var selectedDate: Date = Date()   // 기본값은 오늘
+    
     
     // MARK: - UI Component
     private let monthLabel: UILabel = {
@@ -37,7 +39,16 @@ class ViewController: UIViewController {
         view.showsHorizontalScrollIndicator = false
         view.minimumLineSpacing = 0
         view.minimumInteritemSpacing = 0
+        view.layer.cornerRadius = 8
         return view
+    }()
+    
+    private let tableView: UITableView = {
+        let tableView = UITableView(frame: .zero, style: .insetGrouped)
+        tableView.showsVerticalScrollIndicator = false
+        tableView.backgroundColor = .systemBackground
+        tableView.layer.cornerRadius = 8
+        return tableView
     }()
     
     
@@ -46,6 +57,7 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .secondarySystemBackground
         configureConstraints()
+        configureNavigation()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -62,10 +74,18 @@ class ViewController: UIViewController {
         calendarView.calendarDelegate = self
         calendarView.register(CalendarCell.self, forCellWithReuseIdentifier: CalendarCell.reuseIdentifier)
         
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        
         view.addSubview(monthLabel)
         view.addSubview(calendarView)
+        view.addSubview(tableView)
+        
         monthLabel.translatesAutoresizingMaskIntoConstraints = false
         calendarView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        
         NSLayoutConstraint.activate([
             
             monthLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
@@ -74,7 +94,12 @@ class ViewController: UIViewController {
             calendarView.topAnchor.constraint(equalTo: monthLabel.safeAreaLayoutGuide.bottomAnchor, constant: 12),
             calendarView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             calendarView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            calendarView.heightAnchor.constraint(equalToConstant: 350)
+            calendarView.heightAnchor.constraint(equalToConstant: 350),
+            
+            tableView.topAnchor.constraint(equalTo: calendarView.bottomAnchor, constant: 12),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
         ])
     }
     
@@ -143,8 +168,64 @@ extension ViewController: JTACMonthViewDataSource, JTACMonthViewDelegate {
     }
     
     func calendar(_ calendar: JTACMonthView, didSelectDate date: Date, cell: JTACDayCell?, cellState: CellState, indexPath: IndexPath) {
-        let selectedDates = calendar.selectedDates
-        print("Selected dates: \(selectedDates)")
+        self.selectedDate = date
+        tableView.reloadData()   // 날짜가 바뀌면 테이블 갱신
     }
 }
 
+
+// MARK: - Extension: UITableViewDelegate, UITableViewDataSource
+extension ViewController: UITableViewDelegate, UITableViewDataSource {
+    
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 1
+    }
+    
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let headerView = UIView()
+        headerView.backgroundColor = .clear
+        
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = UIFont.systemFont(ofSize: 20, weight: .semibold)
+        label.textColor = .systemBlue
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M월 d일"
+        label.text = "\(formatter.string(from: selectedDate)) 지출 내역"
+        
+        headerView.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
+            label.centerYAnchor.constraint(equalTo: headerView.centerYAnchor)
+        ])
+        
+        return headerView
+    }
+    
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return 44
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return 5
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        cell.textLabel?.text = "TEST"
+        return cell
+    }
+}
+
+
+extension ViewController {
+    private func configureNavigation() {
+        let addReceiptButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addReceipt))
+        navigationItem.rightBarButtonItem = addReceiptButton
+    }
+    
+    @objc private func addReceipt() {
+        print("add receipt")
+    }
+}
