@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Photos
 import JTAppleCalendar
 
 class ViewController: UIViewController {
@@ -129,28 +130,28 @@ extension ViewController: JTACMonthViewDataSource, JTACMonthViewDelegate {
     
     // 셀 재사용 시 스타일 초기화 및 조건부 UI 적용
     func calendar(_ calendar: JTAppleCalendar.JTACMonthView, willDisplay cell: JTAppleCalendar.JTACDayCell, forItemAt date: Date, cellState: JTAppleCalendar.CellState, indexPath: IndexPath) {
-//        guard let myCell = cell as? CalendarCell else { return }
-//        
-//        // 기본 날짜 표시
-//        myCell.configure(with: cellState.text)
-//        
-//        let weekday = Calendar.current.component(.weekday, from: date)
-//        switch weekday {
-//        case 1: // 일요일
-//            myCell.label.textColor = .systemRed
-//        case 7: // 토요일
-//            myCell.label.textColor = .systemBlue
-//        default:
-//            myCell.label.textColor = .label
-//        }
-//        
-//        // 오늘 날짜 강조
-//        if Calendar.current.isDateInToday(date) {
-//            myCell.layer.borderColor = UIColor.systemRed.cgColor
-//            myCell.layer.borderWidth = 2
-//        } else {
-//            myCell.layer.borderWidth = 0
-//        }
+        //        guard let myCell = cell as? CalendarCell else { return }
+        //
+        //        // 기본 날짜 표시
+        //        myCell.configure(with: cellState.text)
+        //
+        //        let weekday = Calendar.current.component(.weekday, from: date)
+        //        switch weekday {
+        //        case 1: // 일요일
+        //            myCell.label.textColor = .systemRed
+        //        case 7: // 토요일
+        //            myCell.label.textColor = .systemBlue
+        //        default:
+        //            myCell.label.textColor = .label
+        //        }
+        //
+        //        // 오늘 날짜 강조
+        //        if Calendar.current.isDateInToday(date) {
+        //            myCell.layer.borderColor = UIColor.systemRed.cgColor
+        //            myCell.layer.borderWidth = 2
+        //        } else {
+        //            myCell.layer.borderWidth = 0
+        //        }
     }
     
     // 날짜 범위 지정
@@ -221,31 +222,92 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
 
 
 // MARK: - Extension: Navigation Setting
-extension ViewController {
+extension ViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     private func configureNavigation() {
         let addReceiptButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addReceipt))
         navigationItem.rightBarButtonItem = addReceiptButton
     }
     
-    @objc private func addReceipt() {
-        print("add receipt")
+    private func showCameraAndAlbum() {
+        let alert = UIAlertController(title: "카메라 또는 앨범 선택", message: nil, preferredStyle: .actionSheet)
+        
+        let showCameraAction = UIAlertAction(title: "Camera", style: .default) { _ in
+            print("카메라 선택")
+            MediaPermissionManager.shared.checkAndRequestIfNeeded(.camera) { [weak self] granted in
+                guard let self else { return }
+                if granted {
+                    self.openCamera()
+                } else {
+                    self.showPermissionAlert(title: "카메라 권한이 필요합니다.", message: "설정으로 이동하여 권한을 승인하세요")
+                }
+            }
+            //self.openCamera()
+        }
+        
+        let choosePhotoAction = UIAlertAction(title: "Photo Library", style: .default) { _ in
+            print("사진첩 선택")
+            MediaPermissionManager.shared.checkAndRequestIfNeeded(.album) { [weak self] granted in
+                guard let self else { return }
+                if granted {
+                    print("사진첩을 선택헤서 사진첩으로 접근합니다.")
+                } else {
+                    self.showPermissionAlert(title: "사진첩 권한이 필요합니다.", message: "설정으로 이동하여 권한을 승인하세요")
+                }
+            }
+        }
+        
+        let cancelAction = UIAlertAction(title: "취소", style: .cancel, handler: nil)
+        
+        alert.addAction(showCameraAction)
+        alert.addAction(choosePhotoAction)
+        alert.addAction(cancelAction)
+        
+        present(alert, animated: true, completion: nil)
     }
+    
+    private func openCamera() {
+        let imagePicker = UIImagePickerController()
+        
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            imagePicker.sourceType = .camera
+            imagePicker.delegate = self
+            present(imagePicker, animated: true, completion: nil)
+        } else {
+            print("카메라 접근 권한이 필요합니다.")
+        }
+    }
+    
+    @objc private func addReceipt() {
+        self.showCameraAndAlbum()
+    }
+    
 }
 
 
-// MARK: - Extension
+// MARK: - Extension: 카메라, 앨범 접근 권한 설정
 extension ViewController {
     private func checkPhotoLibraryPermission() {
-        MediaPermissionManager.shared.request(.album) { [weak self] granted in
+        
+        MediaPermissionManager.shared.checkAndRequestIfNeeded(.album) { [weak self] granted in
             guard let self else { return }
-            
             if granted {
-                print("접근 권한이 승인되었습니다.")
+                print("앨범 접근 승인")
             } else {
-                print("접근 권한이 불허되었습니다.")
-                self.showPermissionAlert(title: "앨범 접근이 차단되었습니다.", message: "설정에서 권한을 혀용해주세요")
+                print("앨범 접근 불허")
+                self.showPermissionAlert(title: "앨범 접근이 필요합니다.", message: "설정에서 권한을 허용해주세요 ")
             }
         }
+        
+        MediaPermissionManager.shared.checkAndRequestIfNeeded(.camera) { [weak self] granted in
+            guard let self else { return }
+            if granted {
+                print("카메라 접근 승인")
+            } else {
+                print("카메라 접근 불허")
+                self.showPermissionAlert(title: "카메라 접근이 필요합니다.", message: "설정에서 권한을 허용해주세요 ")
+            }
+        }
+
     }
     
     func showPermissionAlert(title: String, message: String) {
