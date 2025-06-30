@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import Photos
+import PhotosUI
 import JTAppleCalendar
 
 class ViewController: UIViewController {
@@ -221,8 +221,8 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
 }
 
 
-// MARK: - Extension: Navigation Setting
-extension ViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+// MARK: - Extension: 카메라 및 앨범 실행 부분 (네비게이션)
+extension ViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate, PHPickerViewControllerDelegate {
     private func configureNavigation() {
         let addReceiptButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addReceipt))
         navigationItem.rightBarButtonItem = addReceiptButton
@@ -250,6 +250,7 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
                 guard let self else { return }
                 if granted {
                     print("사진첩을 선택헤서 사진첩으로 접근합니다.")
+                    self.presentPhotoPicker()
                 } else {
                     self.showPermissionAlert(title: "사진첩 권한이 필요합니다.", message: "설정으로 이동하여 권한을 승인하세요")
                 }
@@ -274,6 +275,62 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
             present(imagePicker, animated: true, completion: nil)
         } else {
             print("카메라 접근 권한이 필요합니다.")
+        }
+    }
+    
+    // 카메라로 찍은 이미지 사용
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        picker.dismiss(animated: true)
+        
+        guard let image = info[.originalImage] as? UIImage else { return }
+        
+        //        let receiptVC = ReceiptViewController(receiptImage: image)
+        //        receiptVC.modalPresentationStyle = .fullScreen
+        //        self.present(receiptVC, animated: true)
+        
+        DispatchQueue.main.async {
+            let receiptVC = ReceiptViewController(receiptImage: image)
+            let nav = UINavigationController(rootViewController: receiptVC)
+            nav.modalPresentationStyle = .fullScreen
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first,
+               let rootVC = window.rootViewController {
+                rootVC.present(nav, animated: true)
+            }
+        }
+    }
+    
+    // 사진첩에서 사진선택 및 설정하는 함수
+    func presentPhotoPicker() {
+        var config = PHPickerConfiguration()
+        config.selectionLimit = 1
+        config.filter = .images
+        
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+    
+    // 사진첩에서 선택하나 후 호출되는 함수
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        
+        guard let result = results.first,
+              result.itemProvider.canLoadObject(ofClass: UIImage.self) else { return }
+        
+        result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
+            guard let self, let image = object as? UIImage else { return }
+            
+            DispatchQueue.main.async {
+                let receiptVC = ReceiptViewController(receiptImage: image)
+                let nav = UINavigationController(rootViewController: receiptVC)
+                nav.modalPresentationStyle = .fullScreen
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first,
+                   let rootVC = window.rootViewController {
+                    rootVC.present(nav, animated: true)
+                }
+            }
         }
     }
     
@@ -307,7 +364,7 @@ extension ViewController {
                 self.showPermissionAlert(title: "카메라 접근이 필요합니다.", message: "설정에서 권한을 허용해주세요 ")
             }
         }
-
+        
     }
     
     func showPermissionAlert(title: String, message: String) {
