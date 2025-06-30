@@ -41,7 +41,12 @@ class ReceiptViewController: UIViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        showLoadingIndicator()
+        
         performOCR(on: receiptImage) { [weak self] lines in
+            DispatchQueue.main.async {
+                self?.hideLoadingIndicator()
+            }
         }
     }
     
@@ -67,6 +72,22 @@ class ReceiptViewController: UIViewController {
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
         ])
+    }
+    
+    func showLoadingIndicator() {
+        let indicator = UIActivityIndicatorView(style: .large)
+        indicator.color = .systemBlue
+        indicator.center = view.center
+        indicator.tag = 999
+        view.addSubview(indicator)
+        indicator.startAnimating()
+    }
+
+    func hideLoadingIndicator() {
+        if let indicator = view.viewWithTag(999) as? UIActivityIndicatorView {
+            indicator.stopAnimating()
+            indicator.removeFromSuperview()
+        }
     }
 }
 
