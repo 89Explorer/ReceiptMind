@@ -58,6 +58,7 @@ class ViewController: UIViewController {
         view.backgroundColor = .secondarySystemBackground
         configureConstraints()
         configureNavigation()
+        checkPhotoLibraryPermission()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -219,6 +220,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
 }
 
 
+// MARK: - Extension: Navigation Setting
 extension ViewController {
     private func configureNavigation() {
         let addReceiptButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addReceipt))
@@ -227,5 +229,32 @@ extension ViewController {
     
     @objc private func addReceipt() {
         print("add receipt")
+    }
+}
+
+
+// MARK: - Extension
+extension ViewController {
+    private func checkPhotoLibraryPermission() {
+        MediaPermissionManager.shared.request(.album) { [weak self] granted in
+            guard let self else { return }
+            
+            if granted {
+                print("접근 권한이 승인되었습니다.")
+            } else {
+                print("접근 권한이 불허되었습니다.")
+                self.showPermissionAlert(title: "앨범 접근이 차단되었습니다.", message: "설정에서 권한을 혀용해주세요")
+            }
+        }
+    }
+    
+    func showPermissionAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "설정으로 이동", style: .default) { _ in
+            guard let settingURL = URL(string: UIApplication.openSettingsURLString) else { return }
+            UIApplication.shared.open(settingURL)
+        })
+        alert.addAction(UIAlertAction(title: "취소", style: .cancel))
+        present(alert, animated: true)
     }
 }
