@@ -21,7 +21,7 @@ class ReceiptImageCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
-        contentView.backgroundColor = .clear
+        contentView.backgroundColor = .systemBackground
     }
     
     required init?(coder: NSCoder) {
@@ -37,10 +37,10 @@ class ReceiptImageCell: UITableViewCell {
         contentView.addSubview(receiptImage)
         
         NSLayoutConstraint.activate([
-            receiptImage.topAnchor.constraint(equalTo: contentView.topAnchor),
-            receiptImage.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            receiptImage.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            receiptImage.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+            receiptImage.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+            receiptImage.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            receiptImage.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            receiptImage.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
         ])
     }
     

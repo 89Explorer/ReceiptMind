@@ -13,7 +13,11 @@ class ReceiptViewController: UIViewController {
     
     // MARK: - Variable
     private let receiptImage: UIImage
-    private let sectionTitle: [String] = ["영수증 사진", "영수증 내역"]
+    private let sectionTitle: [String] = ["영수증 사진", "지출 장소", "지출 날짜", "영수증 내역", "최종 금액", "메모"]
+    
+    
+    // 키보드 위치
+    private var currentKeyboardHeight: CGFloat?
     
     // MARK: - UI Component
     private let tableView: UITableView = UITableView(frame: .zero, style: .insetGrouped)
@@ -37,17 +41,24 @@ class ReceiptViewController: UIViewController {
         view.backgroundColor = .secondarySystemBackground
         setupUI()
         configureNavigation()
+        hideKeyboardWhenTappedAround()
+        
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         showLoadingIndicator()
-        
+        registerKeyboardNotification()
         performOCR(on: receiptImage) { [weak self] lines in
             DispatchQueue.main.async {
                 self?.hideLoadingIndicator()
             }
         }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        view.endEditing(true)
     }
     
     
@@ -56,13 +67,17 @@ class ReceiptViewController: UIViewController {
         tableView.showsLargeContentViewer = false
         tableView.backgroundColor = .systemBackground
         tableView.layer.cornerRadius = 8
-        tableView.rowHeight = 200
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 300
         tableView.translatesAutoresizingMaskIntoConstraints = false
         
         tableView.delegate = self
         tableView.dataSource = self
         
         tableView.register(ReceiptImageCell.self, forCellReuseIdentifier: ReceiptImageCell.reuseIdentifier)
+        tableView.register(ReceiptCommonCell.self, forCellReuseIdentifier: ReceiptCommonCell.reuseIdentifier)
+        tableView.register(ReceiptMemoCell.self, forCellReuseIdentifier: ReceiptMemoCell.reuseIdentifier)
+        tableView.register(ReceiptBreakdownCell.self, forCellReuseIdentifier: ReceiptBreakdownCell.reuseIdentifier)
         
         view.addSubview(tableView)
         
@@ -82,7 +97,7 @@ class ReceiptViewController: UIViewController {
         view.addSubview(indicator)
         indicator.startAnimating()
     }
-
+    
     func hideLoadingIndicator() {
         if let indicator = view.viewWithTag(999) as? UIActivityIndicatorView {
             indicator.stopAnimating()
@@ -111,7 +126,7 @@ extension ReceiptViewController {
 
 
 // MARK: - Extension: UITableViewDelegate, UITableViewDataSource
-extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource {
+extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
     
     func numberOfSections(in tableView: UITableView) -> Int {
         return sectionTitle.count
@@ -163,25 +178,90 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource {
         case 0:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptImageCell.reuseIdentifier, for: indexPath) as? ReceiptImageCell else { return ReceiptImageCell() }
             cell.configure(with: receiptImage)
+            cell.selectionStyle = .none
             return cell
         case 1:
-            return UITableViewCell()
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
+            cell.configure(with: "", delegate: self, tag: indexPath.section)
+            cell.selectionStyle = .none
+            return cell
+        case 2:
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
+            cell.configure(with: "", delegate: self, tag: indexPath.section)
+            cell.selectionStyle = .none
+            return cell
+        case 3:
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptBreakdownCell.reuseIdentifier, for: indexPath) as? ReceiptBreakdownCell else { return ReceiptBreakdownCell() }
+            return cell
+        case 4:
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
+            cell.configure(with: "", delegate: self, tag: indexPath.section)
+            cell.selectionStyle = .none
+            return cell
+            
+        case 5:
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptMemoCell.reuseIdentifier, for: indexPath) as? ReceiptMemoCell else { return ReceiptMemoCell() }
+            
+            return cell
+            
         default:
             return UITableViewCell()
         }
     }
     
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        switch indexPath.section {
-        case 0:
-            return 400
-        case 1:
-            return UITableView.automaticDimension
-        default:
-            return UITableView.automaticDimension
-        }
-    }
+//    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+//        switch indexPath.section {
+//        case 0,3:
+//            return 400
+//        case 1,2,4:
+//            return 60
+//        default:
+//            return UITableView.automaticDimension
+//        }
+//    }
+
+//    func textFieldDidBeginEditing(_ textField: UITextField) {
+//        guard let cell = textField.superview(of: UITableViewCell.self),
+//              let indexPath = tableView.indexPath(for: cell) else {
+//            return
+//        }
+//        switch indexPath.section {
+//        case 1:
+//            tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+//        case 2:
+//            tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+//        default:
+//            break
+//        }
+//    }
     
+//    func textFieldDidBeginEditing(_ textField: UITextField) {
+//        guard let window = view.window,
+//              let cell = textField.superview(of: UITableViewCell.self),
+//              let indexPath = tableView.indexPath(for: cell) else {
+//            return
+//        }
+//
+//        // 텍스트필드의 위치를 기준으로 계산
+//        let textFieldFrameInView = textField.convert(textField.bounds, to: window)
+//
+//        // 키보드 높이 가져오기 (추적 중이던 값을 사용하거나 고정값 사용)
+//        let keyboardHeight = currentKeyboardHeight ?? 300  // 임시값 혹은 Noti에서 추적한 값 사용
+//
+//        // 키보드 위 여유 거리
+//        let spacing: CGFloat = 32
+//
+//        // 텍스트필드의 bottom 위치가 keyboard top 위로 올라오게끔 offset 계산
+//        let keyboardTop = window.bounds.height - keyboardHeight
+//        let overlap = textFieldFrameInView.maxY + spacing - keyboardTop
+//
+//        if overlap > 0 {
+//            // 현재 contentOffset을 조정해서 overlap만큼 위로 올림
+//            var offset = tableView.contentOffset
+//            offset.y += overlap
+//            tableView.setContentOffset(offset, animated: true)
+//        }
+//    }
 }
 
 
@@ -229,44 +309,64 @@ extension ReceiptViewController {
         }
         
     }
-    
-    //    'func recognizeText(from image: UIImage) {
-    //        guard let cgImage = image.cgImage else {
-    //            print("CGImage 변환 실패")
-    //            return
-    //        }
-    //
-    //        let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-    //
-    //        let request = VNRecognizeTextRequest { request, error in
-    //            if let error = error {
-    //                print("OCR 실패:", error.localizedDescription)
-    //                return
-    //            }
-    //
-    //            guard let observations = request.results as? [VNRecognizedTextObservation] else {
-    //                print("OCR 결과 없음")
-    //                return
-    //            }
-    //
-    //            let lines = observations.compactMap { $0.topCandidates(1).first?.string }
-    //
-    //            // ✅ 여기서 콘솔 출력
-    //            print("========== OCR 결과 ==========")
-    //            lines.forEach { print($0) }
-    //            print("=============================")
-    //        }
-    //
-    //        request.recognitionLevel = .accurate
-    //        request.recognitionLanguages = ["ko-KR", "en-US"]
-    //        request.usesLanguageCorrection = true
-    //
-    //        DispatchQueue.global(qos: .userInitiated).async {
-    //            do {
-    //                try requestHandler.perform([request])
-    //            } catch {
-    //                print("OCR 요청 실패:", error)
-    //            }
-    //        }
-    //    }
 }
+
+
+// MARK: - Extension: 키보드 이벤트
+extension ReceiptViewController {
+    private func registerKeyboardNotification() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillShow(_:)),
+                                               name: UIResponder.keyboardWillShowNotification,
+                                               object: nil)
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillHide(_:)),
+                                               name: UIResponder.keyboardWillHideNotification,
+                                               object: nil)
+    }
+    
+//    @objc private func keyboardWillShow(_ notification: Notification) {
+//        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+//
+//        let bottomInset = keyboardFrame.height - view.safeAreaInsets.bottom
+//        tableView.contentInset.bottom = bottomInset
+//        tableView.scrollIndicatorInsets.bottom = bottomInset
+//    }
+//
+//    @objc private func keyboardWillHide(_ notification: Notification) {
+//        tableView.contentInset.bottom = 0
+//        tableView.scrollIndicatorInsets.bottom = 0
+//    }
+    
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+            currentKeyboardHeight = keyboardFrame.height
+            tableView.contentInset.bottom = keyboardFrame.height
+            tableView.scrollIndicatorInsets.bottom = keyboardFrame.height
+        }
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        currentKeyboardHeight = nil
+        tableView.contentInset.bottom = 0
+        tableView.scrollIndicatorInsets.bottom = 0
+    }
+}
+
+
+// MARK: - Extenson: 키보드 숨기기
+extension UIViewController {
+    func hideKeyboardWhenTappedAround() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(UIViewController.dismissKeyboard))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+    
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
+    }
+    
+    // 메모 부분 텍스트뷰를 가리는 키보드 위치 조정
+    
+}
+
