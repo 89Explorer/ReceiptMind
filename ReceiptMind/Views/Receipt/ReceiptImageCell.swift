@@ -32,6 +32,7 @@ class ReceiptImageCell: UITableViewCell {
     // MARK: - Function
     private func setupUI() {
         receiptImage.contentMode = .scaleAspectFit
+        receiptImage.clipsToBounds = true
         receiptImage.translatesAutoresizingMaskIntoConstraints = false
         
         contentView.addSubview(receiptImage)
@@ -41,6 +42,7 @@ class ReceiptImageCell: UITableViewCell {
             receiptImage.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
             receiptImage.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
             receiptImage.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
+            //receiptImage.heightAnchor.constraint(equalToConstant: 300)
         ])
     }
     

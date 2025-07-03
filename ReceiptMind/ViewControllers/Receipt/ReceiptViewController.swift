@@ -14,6 +14,7 @@ class ReceiptViewController: UIViewController {
     // MARK: - Variable
     private let receiptImage: UIImage
     private let sectionTitle: [String] = ["영수증 사진", "지출 장소", "지출 날짜", "영수증 내역", "최종 금액", "메모"]
+    private var receiptData: String = ""
     
     
     // 키보드 위치
@@ -47,11 +48,14 @@ class ReceiptViewController: UIViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        
         showLoadingIndicator()
         registerKeyboardNotification()
+        
         performOCR(on: receiptImage) { [weak self] lines in
             DispatchQueue.main.async {
                 self?.hideLoadingIndicator()
+                self?.tableView.reloadData()
             }
         }
     }
@@ -182,16 +186,21 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
             return cell
         case 1:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
-            cell.configure(with: "", delegate: self, tag: indexPath.section)
+            let address = extractAddress(from: receiptData) ?? ""
+            cell.configure(with: address, delegate: self, tag: indexPath.section)
             cell.selectionStyle = .none
             return cell
         case 2:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
-            cell.configure(with: "", delegate: self, tag: indexPath.section)
+            let date = extractDate(from: receiptData) ?? Date()
+            let extracted = formatDateToKorean(date)
+            cell.configure(with: extracted, delegate: self, tag: indexPath.section)
             cell.selectionStyle = .none
             return cell
         case 3:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptBreakdownCell.reuseIdentifier, for: indexPath) as? ReceiptBreakdownCell else { return ReceiptBreakdownCell() }
+            let items = extractItems(from: receiptData)
+            cell.configure(with: items)
             return cell
         case 4:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
@@ -209,59 +218,60 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
         }
     }
     
-//    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-//        switch indexPath.section {
-//        case 0,3:
-//            return 400
-//        case 1,2,4:
-//            return 60
-//        default:
-//            return UITableView.automaticDimension
-//        }
-//    }
-
-//    func textFieldDidBeginEditing(_ textField: UITextField) {
-//        guard let cell = textField.superview(of: UITableViewCell.self),
-//              let indexPath = tableView.indexPath(for: cell) else {
-//            return
-//        }
-//        switch indexPath.section {
-//        case 1:
-//            tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
-//        case 2:
-//            tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
-//        default:
-//            break
-//        }
-//    }
     
-//    func textFieldDidBeginEditing(_ textField: UITextField) {
-//        guard let window = view.window,
-//              let cell = textField.superview(of: UITableViewCell.self),
-//              let indexPath = tableView.indexPath(for: cell) else {
-//            return
-//        }
-//
-//        // 텍스트필드의 위치를 기준으로 계산
-//        let textFieldFrameInView = textField.convert(textField.bounds, to: window)
-//
-//        // 키보드 높이 가져오기 (추적 중이던 값을 사용하거나 고정값 사용)
-//        let keyboardHeight = currentKeyboardHeight ?? 300  // 임시값 혹은 Noti에서 추적한 값 사용
-//
-//        // 키보드 위 여유 거리
-//        let spacing: CGFloat = 32
-//
-//        // 텍스트필드의 bottom 위치가 keyboard top 위로 올라오게끔 offset 계산
-//        let keyboardTop = window.bounds.height - keyboardHeight
-//        let overlap = textFieldFrameInView.maxY + spacing - keyboardTop
-//
-//        if overlap > 0 {
-//            // 현재 contentOffset을 조정해서 overlap만큼 위로 올림
-//            var offset = tableView.contentOffset
-//            offset.y += overlap
-//            tableView.setContentOffset(offset, animated: true)
-//        }
-//    }
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        switch indexPath.section {
+        case 0:
+            return 400
+        case 1,2,4:
+            return 60
+        default:
+            return UITableView.automaticDimension
+        }
+    }
+    
+    //    func textFieldDidBeginEditing(_ textField: UITextField) {
+    //        guard let cell = textField.superview(of: UITableViewCell.self),
+    //              let indexPath = tableView.indexPath(for: cell) else {
+    //            return
+    //        }
+    //        switch indexPath.section {
+    //        case 1:
+    //            tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
+    //        case 2:
+    //            tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
+    //        default:
+    //            break
+    //        }
+    //    }
+    
+    //    func textFieldDidBeginEditing(_ textField: UITextField) {
+    //        guard let window = view.window,
+    //              let cell = textField.superview(of: UITableViewCell.self),
+    //              let indexPath = tableView.indexPath(for: cell) else {
+    //            return
+    //        }
+    //
+    //        // 텍스트필드의 위치를 기준으로 계산
+    //        let textFieldFrameInView = textField.convert(textField.bounds, to: window)
+    //
+    //        // 키보드 높이 가져오기 (추적 중이던 값을 사용하거나 고정값 사용)
+    //        let keyboardHeight = currentKeyboardHeight ?? 300  // 임시값 혹은 Noti에서 추적한 값 사용
+    //
+    //        // 키보드 위 여유 거리
+    //        let spacing: CGFloat = 32
+    //
+    //        // 텍스트필드의 bottom 위치가 keyboard top 위로 올라오게끔 offset 계산
+    //        let keyboardTop = window.bounds.height - keyboardHeight
+    //        let overlap = textFieldFrameInView.maxY + spacing - keyboardTop
+    //
+    //        if overlap > 0 {
+    //            // 현재 contentOffset을 조정해서 overlap만큼 위로 올림
+    //            var offset = tableView.contentOffset
+    //            offset.y += overlap
+    //            tableView.setContentOffset(offset, animated: true)
+    //        }
+    //    }
 }
 
 
@@ -289,8 +299,10 @@ extension ReceiptViewController {
             }
             
             let lines = observations.compactMap { $0.topCandidates(1).first?.string }
-            print("✅ [OCR] 인식된 텍스트 라인 수: \(lines.count)")
-            lines.forEach { print("• \($0)") }
+            //print("✅ [OCR] 인식된 텍스트 라인 수: \(lines.count)")
+            //lines.forEach { print("• \($0)") }
+            self.receiptData = lines.joined(separator: "\n")
+            print("✅ [OCR] receiptData 저장 완료:\n\(self.receiptData)")
             
             completion(lines)
         }
@@ -307,8 +319,101 @@ extension ReceiptViewController {
                 completion([])
             }
         }
-        
     }
+    
+    // 주소 추출 함수
+    func extractAddress(from text: String) -> String? {
+        let lines = text.components(separatedBy: .newlines)
+        
+        for line in lines {
+            for region in regions {
+                if line.hasPrefix(region) {
+                    return line.trimmingCharacters(in: .whitespaces)
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    // 날짜 추출 함수
+    func extractDate(from text: String) -> Date? {
+        let lines = text.components(separatedBy: .newlines)
+        let pattern = #"-?\s*(\d{2})/(\d{2})/(\d{2})\s+(\d{2})\s*:\s*(\d{2})\s*:\s*(\d{2})"#
+        
+        let regex = try? NSRegularExpression(pattern: pattern)
+        
+        for line in lines {
+            if let match = regex?.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) {
+                let matchedString = (line as NSString).substring(with: match.range)
+                
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yy/MM/ddHH:mm:ss" // 붙이기 전에 공백 제거할 거라 이렇게 써도 됨
+                formatter.locale = Locale(identifier: "ko_KR")
+                formatter.timeZone = .current
+                
+                // 공백 및 '-' 제거 후 파싱
+                let cleaned = matchedString
+                    .replacingOccurrences(of: "-", with: "")
+                    .replacingOccurrences(of: "\\s+", with: "", options: .regularExpression)
+                
+                if let date = formatter.date(from: cleaned) {
+                    print("✅ 추출 성공: \(date)")
+                    return date
+                }
+            }
+        }
+        
+        print("❌ 추출 실패")
+        return nil
+    }
+    
+    // 사용자에게 보여줄 날짜 포맷
+    func formatDateToKorean(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy년 M월 d일 HH:mm:ss"
+        formatter.locale = Locale(identifier: "ko_KR")
+        return formatter.string(from: date)
+    }
+    
+    // 영수증에서 구매한 물품 내역 정리
+    func extractItems(from text: String) -> [ReceiptRow] {
+        let allLines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        
+        let blacklistKeywords = ["합계", "할인", "포인트", "판촉", "과세", "부가세", "합", "신용카드", "카드", "총", "잔액", "매출"]
+        
+        let filteredLines = allLines.filter { line in
+            !blacklistKeywords.contains { keyword in
+                line.contains(keyword)
+            }
+        }
+        
+        var result: [ReceiptRow] = []
+        var index = 0
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .decimal
+        
+        while index + 2 < filteredLines.count {
+            let name = filteredLines[index]
+            let countLine = filteredLines[index + 1]
+            let priceLine = filteredLines[index + 2]
+            
+            if let count = Int(countLine),
+               let price = numberFormatter.number(from: priceLine)?.doubleValue {
+                result.append(ReceiptRow(product: name, count: count, price: price))
+                index += 3
+            } else {
+                index += 1
+            }
+        }
+        
+        return result
+    }
+    
+    
+    
 }
 
 
@@ -325,18 +430,18 @@ extension ReceiptViewController {
                                                object: nil)
     }
     
-//    @objc private func keyboardWillShow(_ notification: Notification) {
-//        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-//
-//        let bottomInset = keyboardFrame.height - view.safeAreaInsets.bottom
-//        tableView.contentInset.bottom = bottomInset
-//        tableView.scrollIndicatorInsets.bottom = bottomInset
-//    }
-//
-//    @objc private func keyboardWillHide(_ notification: Notification) {
-//        tableView.contentInset.bottom = 0
-//        tableView.scrollIndicatorInsets.bottom = 0
-//    }
+    //    @objc private func keyboardWillShow(_ notification: Notification) {
+    //        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+    //
+    //        let bottomInset = keyboardFrame.height - view.safeAreaInsets.bottom
+    //        tableView.contentInset.bottom = bottomInset
+    //        tableView.scrollIndicatorInsets.bottom = bottomInset
+    //    }
+    //
+    //    @objc private func keyboardWillHide(_ notification: Notification) {
+    //        tableView.contentInset.bottom = 0
+    //        tableView.scrollIndicatorInsets.bottom = 0
+    //    }
     
     @objc private func keyboardWillShow(_ notification: Notification) {
         if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
@@ -345,7 +450,7 @@ extension ReceiptViewController {
             tableView.scrollIndicatorInsets.bottom = keyboardFrame.height
         }
     }
-
+    
     @objc private func keyboardWillHide(_ notification: Notification) {
         currentKeyboardHeight = nil
         tableView.contentInset.bottom = 0
@@ -365,8 +470,6 @@ extension UIViewController {
     @objc func dismissKeyboard() {
         view.endEditing(true)
     }
-    
-    // 메모 부분 텍스트뷰를 가리는 키보드 위치 조정
     
 }
 

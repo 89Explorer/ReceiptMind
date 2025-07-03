@@ -9,19 +9,19 @@ import UIKit
 
 class ReceiptBreakdownCell: UITableViewCell {
     
-    
-    // MARK: - Variable
-    static let reuseIdentifier: String = "ReceiptBreakdownCell"
+    static let reuseIdentifier = "ReceiptBreakdownCell"
     private var collectionViewHeightConstraint: NSLayoutConstraint?
+    private var data: [ReceiptRow] = [] {
+        didSet {
+            DispatchQueue.main.async {
+                self.collectionView.reloadData()
+            }
+        }
+    }
     
-    private var data: [ReceiptRow] = []
-    
-    
-    // MARK: - UI Component
     private var collectionView: UICollectionView!
+    private let addButton: UIButton = UIButton(type: .system)
     
-    
-    // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         contentView.backgroundColor = .systemBackground
@@ -32,71 +32,82 @@ class ReceiptBreakdownCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
-    
-    // MARK: - Function
     private func setupUI() {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
+        layout.itemSize = CGSize(width: UIScreen.main.bounds.width - 32, height: 44)
         layout.minimumLineSpacing = 0
         layout.minimumInteritemSpacing = 0
-        layout.itemSize = CGSize(width: UIScreen.main.bounds.width, height: 44)
         
-        
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: self.createLayout())
-        collectionView = UICollectionView(frame: .zero, collectionViewLayout: createLayout())
-        collectionView.register(ReceiptHeaderCell.self, forCellWithReuseIdentifier: ReceiptHeaderCell.reuseIdentifier)
-        collectionView.register(ReceiptRowCell.self, forCellWithReuseIdentifier: ReceiptRowCell.reuseIdentifier)
-        collectionView.dataSource = self
-        
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.backgroundColor = .clear
         collectionView.isScrollEnabled = false
+        collectionView.dataSource = self
+        collectionView.register(ReceiptHeaderCell.self, forCellWithReuseIdentifier: ReceiptHeaderCell.reuseIdentifier)
+        collectionView.register(ReceiptRowCell.self, forCellWithReuseIdentifier: ReceiptRowCell.reuseIdentifier)
         
-        
+        addButton.setTitle("+ 항목 추가", for: .normal)
+        addButton.layer.cornerRadius = 16
+        addButton.titleLabel?.font = .boldSystemFont(ofSize: 14)
+        addButton.setTitleColor(.label, for: .normal)
+        addButton.backgroundColor = .systemBlue
+        addButton.addTarget(self, action: #selector(didTapAddRow), for: .touchUpInside)
+        addButton.translatesAutoresizingMaskIntoConstraints = false
         
         contentView.addSubview(collectionView)
-        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(addButton)
+        
+        collectionViewHeightConstraint = collectionView.heightAnchor.constraint(equalToConstant: 0)
+        collectionViewHeightConstraint?.isActive = true
         
         NSLayoutConstraint.activate([
-            collectionView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            collectionView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            collectionView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            collectionView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12)
+            collectionView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -12),
+            
+            addButton.bottomAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            addButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
+            addButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            addButton.heightAnchor.constraint(equalToConstant: 44)
         ])
-        
-        collectionViewHeightConstraint = collectionView.heightAnchor.constraint(equalToConstant: 88)
-        collectionViewHeightConstraint?.isActive = true
     }
     
     func configure(with data: [ReceiptRow]) {
         self.data = data
-        DispatchQueue.main.async {
-            self.collectionView.reloadData()
-            let contentHeight = self.collectionView.collectionViewLayout.collectionViewContentSize.height
-            let newHeight = max(88, contentHeight)
-            self.collectionViewHeightConstraint?.constant = newHeight
-        }
+        collectionView.reloadData()
+        
+        // 셀 개수 + header 1개 * 50 높이
+        let height = CGFloat(data.count + 1) * 50
+        collectionViewHeightConstraint?.constant = height
     }
     
+    @objc private func didTapAddRow() {
+        data.append(ReceiptRow(product: "", count: 0, price: 0.0))
+        collectionView.reloadData()
+        updateCollectionViewHeight()
+    }
     
-    func createLayout() -> UICollectionViewCompositionalLayout {
-        return UICollectionViewCompositionalLayout { section, _ in
-            let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                                  heightDimension: .absolute(44))
-            let item = NSCollectionLayoutItem(layoutSize: itemSize)
-            
-            let groupSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
-                                                   heightDimension: .absolute(44))
-            let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize,
-                                                           subitem: item,
-                                                           count: 1)
-            let section = NSCollectionLayoutSection(group: group)
-            return section
+    func updateCollectionViewHeight() {
+        let height = CGFloat(data.count + 1) * 50
+        collectionViewHeightConstraint?.constant = height
+        
+        // 🔥 중요: 레이아웃 갱신
+        self.setNeedsLayout()
+        self.layoutIfNeeded()
+        
+        // 셀 높이 갱신 유도
+        if let tableView = self.superview(of: UITableView.self) {
+            tableView.beginUpdates()
+            tableView.endUpdates()
         }
     }
 }
 
 
-// MARK: - Extension
+
+// MARK: - Extension: UICollectionViewDataSource
 extension ReceiptBreakdownCell: UICollectionViewDataSource {
     
     func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -104,7 +115,7 @@ extension ReceiptBreakdownCell: UICollectionViewDataSource {
     }
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return section == 0 ? 1 : 1
+        return section == 0 ? 1 : data.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -112,11 +123,27 @@ extension ReceiptBreakdownCell: UICollectionViewDataSource {
             return collectionView.dequeueReusableCell(withReuseIdentifier: ReceiptHeaderCell.reuseIdentifier, for: indexPath)
         } else {
             let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ReceiptRowCell.reuseIdentifier, for: indexPath) as! ReceiptRowCell
-//            let row = data[indexPath.item]
-//            cell.nameField.text = row.product
-//            cell.quantityField.text = "\(row.count)"
-//            cell.priceField.text = "\(row.price)"
+    
+            
+            let item = data[indexPath.item]
+            cell.nameField.text = item.product
+            cell.quantityField.text = "\(item.count)"
+            cell.priceField.text = "\(item.price)"
+            cell.delegate = self
             return cell
         }
+    }
+}
+
+
+// MARK: - Extension: ReceiptRowCellDelegate
+extension ReceiptBreakdownCell: ReceiptRowCellDelegate {
+    func didTapDelete(in cell: ReceiptRowCell) {
+        guard let indexPath = collectionView.indexPath(for: cell),
+              indexPath.section == 1 else { return }
+        
+        data.remove(at: indexPath.item)
+        collectionView.reloadData()
+        updateCollectionViewHeight()
     }
 }
