@@ -73,8 +73,10 @@ class ReceiptRowCell: UICollectionViewCell {
             $0.textAlignment = .center
             $0.font = .systemFont(ofSize: 14)
             $0.layer.borderWidth = 1
+            $0.layer.borderColor = UIColor.label.cgColor
             $0.layer.cornerRadius = 8
             $0.textColor = .label
+            $0.delegate = self
         }
         
         // 👉 비율 제약 (stack 기준)
@@ -94,4 +96,24 @@ class ReceiptRowCell: UICollectionViewCell {
 // MARK: - Protocol
 protocol ReceiptRowCellDelegate: AnyObject {
     func didTapDelete(in cell: ReceiptRowCell)
+    func didUpdateField(in cell: ReceiptRowCell, field: ReceiptFieldType, value: String)
+}
+
+// MARK: - Enum
+enum ReceiptFieldType {
+    case name, quantity, price
+}
+
+
+// MARK: - Extension: UITextFieldDelegate
+extension ReceiptRowCell: UITextFieldDelegate {
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        if textField == nameField {
+            delegate?.didUpdateField(in: self, field: .name, value: textField.text ?? "")
+        } else if textField == quantityField {
+            delegate?.didUpdateField(in: self, field: .quantity, value: textField.text ?? "")
+        } else if textField == priceField {
+            delegate?.didUpdateField(in: self, field: .price, value:  textField.text ?? "")
+        }
+    }
 }

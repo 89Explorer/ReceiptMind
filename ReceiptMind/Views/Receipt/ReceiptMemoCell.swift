@@ -11,7 +11,9 @@ class ReceiptMemoCell: UITableViewCell {
     
     // MARK: - Variable
     static let reuseIdentifier: String = "ReceiptMemoCell"
-    private let minHeight: CGFloat = 300
+    private let minHeight: CGFloat = 200
+    
+    weak var delegate: ReceiptMemoCellDelegate?
     
     
     // MARK: - UI Component
@@ -33,9 +35,11 @@ class ReceiptMemoCell: UITableViewCell {
     // MARK: - Function
     private func setupUI() {
         textView.font = .systemFont(ofSize: 12)
+        textView.layer.borderWidth = 1
+        textView.layer.borderColor = UIColor.label.cgColor
         textView.textColor = .label
         textView.layer.cornerRadius = 8
-        textView.backgroundColor = .systemGreen
+        textView.backgroundColor = .secondarySystemBackground
         textView.textContainer.lineFragmentPadding = 12
         let heightConstraint = textView.heightAnchor.constraint(greaterThanOrEqualToConstant: minHeight)
         heightConstraint.priority = .defaultHigh
@@ -45,10 +49,30 @@ class ReceiptMemoCell: UITableViewCell {
         contentView.addSubview(textView)
         
         NSLayoutConstraint.activate([
-            textView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            textView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
-            textView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            textView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12)
+            textView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            textView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+            textView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+            textView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8)
         ])
+    }
+    
+    func configure(with text: String, delegate: ReceiptMemoCellDelegate?) {
+        textView.text = text
+        textView.delegate = self
+        self.delegate = delegate
+    }
+}
+
+
+// MARK: - Protocol
+protocol ReceiptMemoCellDelegate: AnyObject {
+    func didUpdateMemo(_ memo: String)
+}
+
+
+// MARK: - Extension: UITextViewDelegate
+extension ReceiptMemoCell: UITextViewDelegate {
+    func textViewDidEndEditing(_ textView: UITextView) {
+        delegate?.didUpdateMemo(textView.text)
     }
 }

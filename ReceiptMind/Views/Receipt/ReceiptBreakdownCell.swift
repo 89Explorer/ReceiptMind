@@ -9,6 +9,7 @@ import UIKit
 
 class ReceiptBreakdownCell: UITableViewCell {
     
+    // MARK: - Variable
     static let reuseIdentifier = "ReceiptBreakdownCell"
     private var collectionViewHeightConstraint: NSLayoutConstraint?
     private var data: [ReceiptRow] = [] {
@@ -18,10 +19,16 @@ class ReceiptBreakdownCell: UITableViewCell {
             }
         }
     }
+    weak var delegate: ReceiptBreakdownCellDelegate?
+    private var parentID: UUID?
     
+    
+    // MARK: - UI Component
     private var collectionView: UICollectionView!
     private let addButton: UIButton = UIButton(type: .system)
     
+    
+    // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         contentView.backgroundColor = .systemBackground
@@ -32,6 +39,8 @@ class ReceiptBreakdownCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
     
+    
+    // MARK: - Function
     private func setupUI() {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
@@ -48,7 +57,9 @@ class ReceiptBreakdownCell: UITableViewCell {
         collectionView.register(ReceiptRowCell.self, forCellWithReuseIdentifier: ReceiptRowCell.reuseIdentifier)
         
         addButton.setTitle("+ 항목 추가", for: .normal)
-        addButton.layer.cornerRadius = 16
+        addButton.layer.cornerRadius = 8
+        addButton.layer.borderWidth = 1
+        addButton.layer.borderColor = UIColor.label.cgColor
         addButton.titleLabel?.font = .boldSystemFont(ofSize: 14)
         addButton.setTitleColor(.label, for: .normal)
         addButton.backgroundColor = .systemBlue
@@ -67,15 +78,16 @@ class ReceiptBreakdownCell: UITableViewCell {
             collectionView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: addButton.topAnchor, constant: -12),
             
-            addButton.bottomAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-            addButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
-            addButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
+            addButton.bottomAnchor.constraint(equalTo: contentView.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            addButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+            addButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
             addButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
     
-    func configure(with data: [ReceiptRow]) {
+    func configure(with data: [ReceiptRow], parentID: UUID) {
         self.data = data
+        self.parentID = parentID
         collectionView.reloadData()
         
         // 셀 개수 + header 1개 * 50 높이
@@ -84,7 +96,13 @@ class ReceiptBreakdownCell: UITableViewCell {
     }
     
     @objc private func didTapAddRow() {
-        data.append(ReceiptRow(product: "", count: 0, price: 0.0))
+        guard let parentID = parentID else {
+            print("❌ ReceiptBreakdownCell: parentID 없음")
+            return
+        }
+        
+        data.append(ReceiptRow(parentID: parentID , product: "", count: 0, price: 0.0))
+        delegate?.didAddNewRow()  // VC에 알림
         collectionView.reloadData()
         updateCollectionViewHeight()
     }
@@ -143,7 +161,34 @@ extension ReceiptBreakdownCell: ReceiptRowCellDelegate {
               indexPath.section == 1 else { return }
         
         data.remove(at: indexPath.item)
+        delegate?.didDeleteRow(at: indexPath.item)
         collectionView.reloadData()
         updateCollectionViewHeight()
     }
+    
+    func didUpdateField(in cell: ReceiptRowCell, field: ReceiptFieldType, value: String) {
+        guard let indexPath = collectionView.indexPath(for: cell) else { return }
+        
+        var row = data[indexPath.item]
+        
+        switch field {
+        case .name:
+            row.product = value
+        case .quantity:
+            row.count = Int(value) ?? 0
+        case .price:
+            row.price = Double(value) ?? 0
+        }
+        data[indexPath.item] = row
+        delegate?.didUpdateRow(row, at: indexPath.item)
+    }
+}
+
+
+// MARK: - Protocol: ReceiptBreakdownCellDelegate
+protocol ReceiptBreakdownCellDelegate: AnyObject {
+    func didUpdateRow(_ row: ReceiptRow, at index: Int)
+    func didAddNewRow()
+    func didDeleteRow(at index: Int)
+    
 }

@@ -7,6 +7,7 @@
 
 import UIKit
 import Vision
+import Combine
 
 class ReceiptViewController: UIViewController {
     
@@ -15,13 +16,16 @@ class ReceiptViewController: UIViewController {
     private let receiptImage: UIImage
     private let sectionTitle: [String] = ["영수증 사진", "지출 장소", "지출 날짜", "영수증 내역", "최종 금액", "메모"]
     private var receiptData: String = ""
+    private var receiptViewModel: ReceiptViewModel = ReceiptViewModel()
+    private var cancellables: Set<AnyCancellable> = []
     
-    
+
     // 키보드 위치
     private var currentKeyboardHeight: CGFloat?
     
     // MARK: - UI Component
     private let tableView: UITableView = UITableView(frame: .zero, style: .insetGrouped)
+    private var saveButton: UIButton = UIButton(type: .custom)
     
     
     // MARK: - Init
@@ -75,6 +79,16 @@ class ReceiptViewController: UIViewController {
         tableView.estimatedRowHeight = 300
         tableView.translatesAutoresizingMaskIntoConstraints = false
         
+        saveButton.setTitle("저장하기", for: .normal)
+        saveButton.layer.cornerRadius = 8
+        saveButton.layer.borderWidth = 1
+        saveButton.layer.borderColor = UIColor.label.cgColor
+        saveButton.titleLabel?.font = .boldSystemFont(ofSize: 14)
+        saveButton.setTitleColor(.label, for: .normal)
+        saveButton.backgroundColor = .systemBlue
+        saveButton.addTarget(self, action: #selector(saveReceipt), for: .touchUpInside)
+        saveButton.translatesAutoresizingMaskIntoConstraints = false
+        
         tableView.delegate = self
         tableView.dataSource = self
         
@@ -84,12 +98,18 @@ class ReceiptViewController: UIViewController {
         tableView.register(ReceiptBreakdownCell.self, forCellReuseIdentifier: ReceiptBreakdownCell.reuseIdentifier)
         
         view.addSubview(tableView)
+        view.addSubview(saveButton)
         
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12)
+            tableView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -12),
+            
+            saveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            saveButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            saveButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            saveButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
     
@@ -107,6 +127,12 @@ class ReceiptViewController: UIViewController {
             indicator.stopAnimating()
             indicator.removeFromSuperview()
         }
+    }
+    
+    @objc private func saveReceipt() {
+        print("👍 saveReceipt 버튼 눌림")
+        receiptViewModel.createReceipt(receiptViewModel.receiptItem, receiptImage)
+        dismiss(animated: true)
     }
 }
 
@@ -179,17 +205,20 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
         let sectionIndex = indexPath.section
         
         switch sectionIndex {
+            
         case 0:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptImageCell.reuseIdentifier, for: indexPath) as? ReceiptImageCell else { return ReceiptImageCell() }
             cell.configure(with: receiptImage)
             cell.selectionStyle = .none
             return cell
+            
         case 1:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
             let address = extractAddress(from: receiptData) ?? ""
             cell.configure(with: address, delegate: self, tag: indexPath.section)
             cell.selectionStyle = .none
             return cell
+            
         case 2:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
             let date = extractDate(from: receiptData) ?? Date()
@@ -197,11 +226,22 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
             cell.configure(with: extracted, delegate: self, tag: indexPath.section)
             cell.selectionStyle = .none
             return cell
+            
         case 3:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptBreakdownCell.reuseIdentifier, for: indexPath) as? ReceiptBreakdownCell else { return ReceiptBreakdownCell() }
-            let items = extractItems(from: receiptData)
-            cell.configure(with: items)
+//            guard let receiptID = receiptViewModel.receiptItem.id else {
+//                print("❌ Receipt ID가 없습니다.")
+//                return cell
+//            }
+            
+            let receiptID = receiptViewModel.receiptItem.id
+            
+            let items = extractItems(from: receiptData, parentID: receiptID)
+            receiptViewModel.receiptItem.list = items
+            cell.configure(with: items, parentID: receiptID)
+            cell.delegate = self
             return cell
+            
         case 4:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptCommonCell.reuseIdentifier, for: indexPath) as? ReceiptCommonCell else { return ReceiptCommonCell() }
             cell.configure(with: "", delegate: self, tag: indexPath.section)
@@ -210,7 +250,7 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
             
         case 5:
             guard let cell = tableView.dequeueReusableCell(withIdentifier: ReceiptMemoCell.reuseIdentifier, for: indexPath) as? ReceiptMemoCell else { return ReceiptMemoCell() }
-            
+            cell.configure(with: "", delegate: self)
             return cell
             
         default:
@@ -229,49 +269,6 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
             return UITableView.automaticDimension
         }
     }
-    
-    //    func textFieldDidBeginEditing(_ textField: UITextField) {
-    //        guard let cell = textField.superview(of: UITableViewCell.self),
-    //              let indexPath = tableView.indexPath(for: cell) else {
-    //            return
-    //        }
-    //        switch indexPath.section {
-    //        case 1:
-    //            tableView.scrollToRow(at: indexPath, at: .middle, animated: true)
-    //        case 2:
-    //            tableView.scrollToRow(at: indexPath, at: .bottom, animated: true)
-    //        default:
-    //            break
-    //        }
-    //    }
-    
-    //    func textFieldDidBeginEditing(_ textField: UITextField) {
-    //        guard let window = view.window,
-    //              let cell = textField.superview(of: UITableViewCell.self),
-    //              let indexPath = tableView.indexPath(for: cell) else {
-    //            return
-    //        }
-    //
-    //        // 텍스트필드의 위치를 기준으로 계산
-    //        let textFieldFrameInView = textField.convert(textField.bounds, to: window)
-    //
-    //        // 키보드 높이 가져오기 (추적 중이던 값을 사용하거나 고정값 사용)
-    //        let keyboardHeight = currentKeyboardHeight ?? 300  // 임시값 혹은 Noti에서 추적한 값 사용
-    //
-    //        // 키보드 위 여유 거리
-    //        let spacing: CGFloat = 32
-    //
-    //        // 텍스트필드의 bottom 위치가 keyboard top 위로 올라오게끔 offset 계산
-    //        let keyboardTop = window.bounds.height - keyboardHeight
-    //        let overlap = textFieldFrameInView.maxY + spacing - keyboardTop
-    //
-    //        if overlap > 0 {
-    //            // 현재 contentOffset을 조정해서 overlap만큼 위로 올림
-    //            var offset = tableView.contentOffset
-    //            offset.y += overlap
-    //            tableView.setContentOffset(offset, animated: true)
-    //        }
-    //    }
 }
 
 
@@ -376,8 +373,16 @@ extension ReceiptViewController {
         return formatter.string(from: date)
     }
     
+    // CoreData에 저장할 날짜 포맷
+    func formatKoeranToDate(_ dateString: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy년 M월 d일 HH:mm:ss"
+        formatter.locale = Locale(identifier: "ko_KR")
+        return formatter.date(from: dateString) ?? Date()
+    }
+    
     // 영수증에서 구매한 물품 내역 정리
-    func extractItems(from text: String) -> [ReceiptRow] {
+    func extractItems(from text: String, parentID: UUID) -> [ReceiptRow] {
         let allLines = text.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
@@ -402,7 +407,8 @@ extension ReceiptViewController {
             
             if let count = Int(countLine),
                let price = numberFormatter.number(from: priceLine)?.doubleValue {
-                result.append(ReceiptRow(product: name, count: count, price: price))
+                let row = ReceiptRow(parentID: parentID, product: name, count: count, price: price)
+                result.append(row)
                 index += 3
             } else {
                 index += 1
@@ -411,9 +417,8 @@ extension ReceiptViewController {
         
         return result
     }
-    
-    
-    
+
+
 }
 
 
@@ -429,19 +434,6 @@ extension ReceiptViewController {
                                                name: UIResponder.keyboardWillHideNotification,
                                                object: nil)
     }
-    
-    //    @objc private func keyboardWillShow(_ notification: Notification) {
-    //        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-    //
-    //        let bottomInset = keyboardFrame.height - view.safeAreaInsets.bottom
-    //        tableView.contentInset.bottom = bottomInset
-    //        tableView.scrollIndicatorInsets.bottom = bottomInset
-    //    }
-    //
-    //    @objc private func keyboardWillHide(_ notification: Notification) {
-    //        tableView.contentInset.bottom = 0
-    //        tableView.scrollIndicatorInsets.bottom = 0
-    //    }
     
     @objc private func keyboardWillShow(_ notification: Notification) {
         if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
@@ -473,3 +465,51 @@ extension UIViewController {
     
 }
 
+
+// MARK: - Extension: ReceiptInputDelegate
+extension ReceiptViewController: ReceiptInputDelegate {
+    func didUpdateText(_ text: String, forSection section: Int) {
+        switch section {
+        case 1:
+            receiptViewModel.receiptItem.place = text
+        case 2:
+            let date = self.formatKoeranToDate(text)
+            receiptViewModel.receiptItem.date = date
+        case 3:
+            receiptViewModel.receiptItem.total = Double(text) ?? 0
+        default:
+            break
+        }
+    }
+}
+
+
+// MARK: - Extension: ReceiptMemoCellDelegate
+extension ReceiptViewController: ReceiptMemoCellDelegate {
+    func didUpdateMemo(_ memo: String) {
+        //receipt.memo = memo
+        receiptViewModel.receiptItem.memo = memo
+    }
+}
+
+
+// MARK: - Extension: ReceiptBreakdownCellDelegate
+extension ReceiptViewController: ReceiptBreakdownCellDelegate {
+    func didAddNewRow() {
+        let receiptID = receiptViewModel.receiptItem.id
+        
+        receiptViewModel.receiptItem.list.append(ReceiptRow(parentID: receiptID , product: "", count: 0, price: 0.0))
+    }
+    
+    func didDeleteRow(at index: Int) {
+        if receiptViewModel.receiptItem.list.indices.contains(index) {
+            receiptViewModel.receiptItem.list.remove(at: index)
+        }
+    }
+    
+    func didUpdateRow(_ row: ReceiptRow, at index: Int) {
+        print("▶️ \(index)번째 row 업데이트: \(row)")
+        //receipt.list[index] = row
+        receiptViewModel.receiptItem.list[index] = row
+    }
+}

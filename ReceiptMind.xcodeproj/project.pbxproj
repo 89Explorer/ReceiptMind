@@ -8,10 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		A1442B3C2E0FE54000D8764B /* JTAppleCalendar in Frameworks */ = {isa = PBXBuildFile; productRef = A1442B3B2E0FE54000D8764B /* JTAppleCalendar */; };
+		A1442C0E2E17850000D8764B /* ReceiptRowEntity+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1442C0C2E17850000D8764B /* ReceiptRowEntity+CoreDataClass.swift */; };
+		A1442C0F2E17850000D8764B /* ReceiptEntity+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1442C0B2E17850000D8764B /* ReceiptEntity+CoreDataProperties.swift */; };
+		A1442C102E17850000D8764B /* ReceiptEntity+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1442C0A2E17850000D8764B /* ReceiptEntity+CoreDataClass.swift */; };
+		A1442C112E17850000D8764B /* ReceiptRowEntity+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1442C0D2E17850000D8764B /* ReceiptRowEntity+CoreDataProperties.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A1442B1F2E0FD2B500D8764B /* ReceiptMind.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReceiptMind.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1442C0A2E17850000D8764B /* ReceiptEntity+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReceiptEntity+CoreDataClass.swift"; sourceTree = "<group>"; };
+		A1442C0B2E17850000D8764B /* ReceiptEntity+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReceiptEntity+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		A1442C0C2E17850000D8764B /* ReceiptRowEntity+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReceiptRowEntity+CoreDataClass.swift"; sourceTree = "<group>"; };
+		A1442C0D2E17850000D8764B /* ReceiptRowEntity+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReceiptRowEntity+CoreDataProperties.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -50,6 +58,10 @@
 		A1442B162E0FD2B500D8764B = {
 			isa = PBXGroup;
 			children = (
+				A1442C0A2E17850000D8764B /* ReceiptEntity+CoreDataClass.swift */,
+				A1442C0B2E17850000D8764B /* ReceiptEntity+CoreDataProperties.swift */,
+				A1442C0C2E17850000D8764B /* ReceiptRowEntity+CoreDataClass.swift */,
+				A1442C0D2E17850000D8764B /* ReceiptRowEntity+CoreDataProperties.swift */,
 				A1442B212E0FD2B500D8764B /* ReceiptMind */,
 				A1442B202E0FD2B500D8764B /* Products */,
 			);
@@ -141,6 +153,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1442C0E2E17850000D8764B /* ReceiptRowEntity+CoreDataClass.swift in Sources */,
+				A1442C0F2E17850000D8764B /* ReceiptEntity+CoreDataProperties.swift in Sources */,
+				A1442C102E17850000D8764B /* ReceiptEntity+CoreDataClass.swift in Sources */,
+				A1442C112E17850000D8764B /* ReceiptRowEntity+CoreDataProperties.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

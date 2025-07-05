@@ -12,7 +12,8 @@ class ReceiptCommonCell: UITableViewCell {
     // MARK: - Variable
     static let reuseIdentifier: String = "ReceiptCommonCell"
     private let minHeight: CGFloat = 44
-    
+    weak var delegate: ReceiptInputDelegate?
+    private var sectionTag: Int = 0
     
     
     // MARK: - UI Component
@@ -36,6 +37,7 @@ class ReceiptCommonCell: UITableViewCell {
         commonTextField.placeholder = "Enter Text"
         commonTextField.textColor = .label
         commonTextField.layer.borderWidth = 1
+        commonTextField.layer.borderColor = UIColor.label.cgColor
         commonTextField.layer.cornerRadius = 8
         commonTextField.backgroundColor = .secondarySystemBackground
         commonTextField.addLeftPadding()
@@ -56,9 +58,24 @@ class ReceiptCommonCell: UITableViewCell {
         ])
     }
     
-    func configure(with text: String, delegate: UITextFieldDelegate?, tag: Int) {
+    func configure(with text: String, delegate: ReceiptInputDelegate?, tag: Int) {
         commonTextField.text = text
-        commonTextField.delegate = delegate
-        commonTextField.tag = tag
+        self.delegate = delegate
+        self.sectionTag = tag
+        commonTextField.delegate = self
     }
+}
+
+
+// MARK: - Extension: UITextFieldDelegate
+extension ReceiptCommonCell: UITextFieldDelegate {
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        delegate?.didUpdateText(textField.text ?? "", forSection: sectionTag)
+    }
+}
+
+
+// MARK: - Protocol
+protocol ReceiptInputDelegate: AnyObject {
+    func didUpdateText(_ text: String, forSection section: Int)
 }

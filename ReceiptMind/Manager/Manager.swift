@@ -25,6 +25,7 @@ enum PermissionStatus {
 }
 
 
+// 카메라, 앨범 접근권한 설정
 final class MediaPermissionManager {
     
     static let shared = MediaPermissionManager()
