@@ -62,6 +62,19 @@ class ReceiptViewController: UIViewController {
                 self?.tableView.reloadData()
             }
         }
+        
+        let dashLines = detectDashLinePositions(from: receiptImage)
+        let croppedImages = splitImage(receiptImage, at: dashLines)
+        print("📸 자른 이미지 개수: \(croppedImages.count)")
+
+        
+//        splitImageByDashLine(receiptImage) { croppedImages in
+//            print(croppedImages)
+//            let previewVC = ImagePreviewViewController(images: croppedImages)
+//            let nav = UINavigationController(rootViewController: previewVC)
+//            self.present(nav, animated: true)
+//        }
+
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -128,6 +141,25 @@ class ReceiptViewController: UIViewController {
             indicator.removeFromSuperview()
         }
     }
+    
+    func addDebugOverlay(to image: UIImage, index: Int) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: image.size)
+        return renderer.image { context in
+            image.draw(at: .zero)
+
+            // 빨간색 테두리
+            UIColor.red.setStroke()
+
+            // 번호 표시
+            let number = "\(index + 1)"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 40),
+                .foregroundColor: UIColor.blue
+            ]
+            number.draw(at: CGPoint(x: 20, y: 20), withAttributes: attrs)
+        }
+    }
+
     
     @objc private func saveReceipt() {
         print("👍 saveReceipt 버튼 눌림")
@@ -274,6 +306,162 @@ extension ReceiptViewController: UITableViewDelegate, UITableViewDataSource, UIT
 
 // MARK: - Extension: OCR 셋팅
 extension ReceiptViewController {
+    
+    func detectDashLinePositions(from image: UIImage) -> [CGFloat] {
+        guard let cgImage = image.cgImage else { return [] }
+        let width = cgImage.width
+        let height = cgImage.height
+
+        guard let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else {
+            return []
+        }
+
+        var dashLineYs: [CGFloat] = []
+
+        let bytesPerPixel = 4
+        let bytesPerRow = cgImage.bytesPerRow
+
+        for y in 0..<height {
+            var darkPixelCount = 0
+
+            for x in 0..<width {
+                let offset = y * bytesPerRow + x * bytesPerPixel
+                let r = bytes[offset]
+                let g = bytes[offset + 1]
+                let b = bytes[offset + 2]
+
+                let brightness = 0.299 * Double(r) + 0.587 * Double(g) + 0.114 * Double(b)
+                if brightness < 50 {
+                    darkPixelCount += 1
+                }
+            }
+
+            let ratio = Double(darkPixelCount) / Double(width)
+            if ratio > 0.5 { // 우선 50% 이상이면 로그 찍자
+                print("🟡 구분선 후보 - y: \(y), 어두운 비율: \(Int(ratio * 100))%")
+            }
+
+            if ratio > 0.85 {
+                dashLineYs.append(CGFloat(y))
+                print("✅ 구분선 확정 - y: \(y), 어두운 비율: \(Int(ratio * 100))%")
+            }
+        }
+
+
+        // 비슷한 y값(±5)을 묶어서 한 줄로 판단
+        let grouped = dashLineYs.reduce(into: [CGFloat]()) { result, y in
+            if let last = result.last, abs(last - y) < 5 {
+                return
+            }
+            result.append(y)
+        }
+
+        return grouped
+    }
+
+    
+    func splitImage(_ image: UIImage, at yPositions: [CGFloat]) -> [UIImage] {
+        guard let cgImage = image.cgImage else { return [] }
+        var croppedImages: [UIImage] = []
+
+        var lastY: CGFloat = 0
+        for y in yPositions {
+            let height = y - lastY
+            if height < 10 { continue } // 너무 얇으면 무시
+            let rect = CGRect(x: 0, y: lastY, width: CGFloat(cgImage.width), height: height)
+            if let cropped = cgImage.cropping(to: rect) {
+                croppedImages.append(UIImage(cgImage: cropped))
+            }
+            lastY = y
+        }
+
+        // 마지막 잘린 부분도 추가
+        let remainingHeight = CGFloat(cgImage.height) - lastY
+        if remainingHeight > 10,
+           let lastCrop = cgImage.cropping(to: CGRect(x: 0, y: lastY, width: CGFloat(cgImage.width), height: remainingHeight)) {
+            croppedImages.append(UIImage(cgImage: lastCrop))
+        }
+
+        return croppedImages
+    }
+
+    
+//    func splitImageByDashLine(_ image: UIImage, completion: @escaping ([UIImage]) -> Void) {
+//        DispatchQueue.global(qos: .userInitiated).async {
+//            guard let cgImage = image.cgImage else {
+//                DispatchQueue.main.async {
+//                    completion([])
+//                }
+//                return
+//            }
+//
+//            let width = cgImage.width
+//            let height = cgImage.height
+//            let bytesPerPixel = 4
+//            let bytesPerRow = bytesPerPixel * width
+//            let bitsPerComponent = 8
+//
+//            guard let context = CGContext(data: nil,
+//                                          width: width,
+//                                          height: height,
+//                                          bitsPerComponent: bitsPerComponent,
+//                                          bytesPerRow: bytesPerRow,
+//                                          space: CGColorSpaceCreateDeviceRGB(),
+//                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+//                  let pixelBuffer = context.data else {
+//                DispatchQueue.main.async {
+//                    completion([])
+//                }
+//                return
+//            }
+//
+//            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+//
+//            let threshold = Int(Double(width) * 0.85)
+//            var sectionBoundaries: [Int] = [0]
+//
+//            for y in 0..<height {
+//                var darkPixelCount = 0
+//
+//                for x in 0..<width {
+//                    let offset = y * bytesPerRow + x * bytesPerPixel
+//                    let r = pixelBuffer.load(fromByteOffset: offset, as: UInt8.self)
+//                    let g = pixelBuffer.load(fromByteOffset: offset + 1, as: UInt8.self)
+//                    let b = pixelBuffer.load(fromByteOffset: offset + 2, as: UInt8.self)
+//
+//                    if r < 60 && g < 60 && b < 60 {
+//                        darkPixelCount += 1
+//                    }
+//                }
+//
+//                if darkPixelCount >= threshold {
+//                    sectionBoundaries.append(y)
+//                }
+//            }
+//
+//            sectionBoundaries.append(height)
+//
+//            var croppedImages: [UIImage] = []
+//
+//            for i in 0..<(sectionBoundaries.count - 1) {
+//                let startY = sectionBoundaries[i]
+//                let endY = sectionBoundaries[i + 1]
+//                let cropRect = CGRect(x: 0, y: startY, width: width, height: endY - startY)
+//
+//                if let croppedCGImage = cgImage.cropping(to: cropRect) {
+//                    let croppedImage = UIImage(cgImage: croppedCGImage)
+//                    croppedImages.append(croppedImage)
+//                }
+//            }
+//
+//            DispatchQueue.main.async {
+//                completion(croppedImages)
+//            }
+//        }
+//    }
+
+    
     func performOCR(on image: UIImage, completion: @escaping ([String]) -> Void) {
         guard let cgImage = image.cgImage else {
             print("❌ [OCR] UIImage → CGImage 변환 실패")
@@ -317,6 +505,7 @@ extension ReceiptViewController {
             }
         }
     }
+    
     
     // 주소 추출 함수
     func extractAddress(from text: String) -> String? {

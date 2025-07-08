@@ -112,21 +112,43 @@ class ViewController: UIViewController {
 extension ViewController: JTACMonthViewDataSource, JTACMonthViewDelegate {
     
     // 셀 초기 생성 시 UI 구성
-    func calendar(_ calendar: JTAppleCalendar.JTACMonthView, cellForItemAt date: Date, cellState: JTAppleCalendar.CellState, indexPath: IndexPath) -> JTAppleCalendar.JTACDayCell {
-        guard let cell = calendar.dequeueReusableJTAppleCell(withReuseIdentifier: CalendarCell.reuseIdentifier, for: indexPath) as? CalendarCell else { return JTAppleCalendar.JTACDayCell() }
-        cell.configure(with: cellState.text,
-                       textColor: {
-            let weekday = Calendar.current.component(.weekday, from: date)
-            switch weekday {
-            case 1: return UIColor.systemRed
-            case 7: return UIColor.systemBlue
-            default: return .label
-            }
-        }(),
-                       isToday: Calendar.current.isDateInToday(date)
+    func calendar(_ calendar: JTACMonthView,
+                  cellForItemAt date: Date,
+                  cellState: CellState,
+                  indexPath: IndexPath) -> JTACDayCell {
+        
+        guard let cell = calendar.dequeueReusableJTAppleCell(
+            withReuseIdentifier: CalendarCell.reuseIdentifier,
+            for: indexPath) as? CalendarCell else {
+            return JTACDayCell()
+        }
+
+        let weekdayIndex = Calendar.current.component(.weekday, from: date)
+        let weekdaySymbol = Calendar.current.shortStandaloneWeekdaySymbols[weekdayIndex - 1] // 일~토
+
+        // 색상 분기: 주말 + 평일 + 비속한 날짜 처리
+        var textColor: UIColor = .label
+        switch weekdayIndex {
+        case 1: textColor = .systemRed     // 일요일
+        case 7: textColor = .systemBlue    // 토요일
+        default: textColor = .label
+        }
+
+        if cellState.dateBelongsTo != .thisMonth {
+            textColor = .lightGray
+        }
+
+        cell.configure(
+            with: cellState.text,
+            weekdayText: weekdaySymbol,
+            textColor: textColor,
+            isToday: Calendar.current.isDateInToday(date),
+            cost: nil
         )
+
         return cell
     }
+
     
     // 셀 재사용 시 스타일 초기화 및 조건부 UI 적용
     func calendar(_ calendar: JTAppleCalendar.JTACMonthView, willDisplay cell: JTAppleCalendar.JTACDayCell, forItemAt date: Date, cellState: JTAppleCalendar.CellState, indexPath: IndexPath) {
@@ -155,11 +177,40 @@ extension ViewController: JTACMonthViewDataSource, JTACMonthViewDelegate {
     }
     
     // 날짜 범위 지정
-    func configureCalendar(_ calendar: JTAppleCalendar.JTACMonthView) -> JTAppleCalendar.ConfigurationParameters {
-        let startDate = dateFormatter.date(from: "2020 01 01")!
-        let endDate = dateFormatter.date(from: "2100 12 31")!
-        return ConfigurationParameters(startDate: startDate, endDate: endDate)
+//    func configureCalendar(_ calendar: JTAppleCalendar.JTACMonthView) -> JTAppleCalendar.ConfigurationParameters {
+//        let startDate = dateFormatter.date(from: "2020 01 01")!
+//        let endDate = dateFormatter.date(from: "2100 12 31")!
+//        
+//        let parameters = ConfigurationParameters(
+//            startDate: startDate,
+//            endDate: endDate,
+//            calendar: Calendar.current,
+//            hasStrictBoundaries: true
+//        )
+//        
+//        return parameters
+//    }
+    
+    func configureCalendar(_ calendar: JTACMonthView) -> ConfigurationParameters {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy MM dd"
+
+        let startDate = formatter.date(from: "2020 01 01")!
+        let endDate = formatter.date(from: "2030 12 31")!
+
+        return ConfigurationParameters(
+            startDate: startDate,
+            endDate: endDate,
+            numberOfRows: 6, // 달력은 항상 6줄로
+            calendar: Calendar.current,
+            generateInDates: .forAllMonths,   // ✅ 전달 말일 표시
+            generateOutDates: .tillEndOfGrid, // ✅ 다음달 시작일 표시
+            firstDayOfWeek: .sunday,
+            hasStrictBoundaries: true         // ✅ 한 달씩 정확히 스크롤
+        )
     }
+
+
     
     // 스크롤할 때마다 현재 월의 날짜를 업데이트
     func calendar(_ calendar: JTACMonthView, didScrollToDateSegmentWith visibleDates: DateSegmentInfo) {
@@ -331,6 +382,7 @@ extension ViewController: UIImagePickerControllerDelegate, UINavigationControlle
                     rootVC.present(nav, animated: true)
                 }
             }
+            
         }
     }
     
